@@ -3,16 +3,15 @@
 # Add steps that publish symbols, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
 
-trigger: 
+trigger:
 - none
 
 pool:
   vmImage: 'windows-latest'
 
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
-  buildConfiguration: 'Release'
+  BuildPlatform: 'Any CPU'
+  BuildConfiguration: 'Release'
 
 stages:
 
@@ -29,28 +28,28 @@ stages:
 
       - task: NuGetCommand@2
         inputs:
-          restoreSolution: '$(solution)'
-        
+          restoreSolution:  SampleWebApplication/CodeForAzureDevOps.sln
       
-      # - task: SonarQubePrepare@5
-      #   inputs:
-      #     SonarQube: 'sq-updated'
-      #     scannerMode: 'MSBuild'
-      #     projectKey: 'ct-bootcamp-project'
-      #     projectName: 'ct-bootcamp-project'
+      - task: SonarQubePrepare@5
+        inputs:
+          SonarQube: 'Sonarqube-Az'
+          scannerMode: 'MSBuild'
+          projectKey: 'Demo-Steve_Demo-Steve'
+          projectName: 'Demo-Steve_Demo-Steve'
 
       - task: VSBuild@1
         inputs:
-          solution: '$(solution)'
-          msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
-          platform: '$(buildPlatform)'
-          configuration: '$(buildConfiguration)'
-
-      # - task: SonarQubeAnalyze@5
-      # - task: SonarQubePublish@5
-      #   inputs:
-      #    pollingTimeoutSec: '300'
-
+          solution: SampleWebApplication/CodeForAzureDevOps.sln
+          msbuildArgs: '/p:DeployOnBuild=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:publishUrl="$(Agent.TempDirectory)\WebAppContent\\"'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+        
+      - task: SonarQubeAnalyze@5
+      - task: SonarQubePublish@5
+        inputs:
+          pollingTimeoutSec: '300'
+      
+      
       - task: VSTest@2
         inputs:
           testSelector: 'testAssemblies'
@@ -58,53 +57,16 @@ stages:
             **\UnitTestForAzureDevOps.dll
             !**\*TestAdapter.dll
             !**\obj\**
+            # **\UnitTestForAzureDevOps\**\**\*TestAdapter.dll
+            # **\UnitTestForAzureDevOps\obj\**
           searchFolder: '$(System.DefaultWorkingDirectory)'
           runTestsInIsolation: true
-          codeCoverageEnabled: true
-          platform: '$(buildPlatform)'
-          configuration: '$(buildConfiguration)'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+        
       - task: PublishBuildArtifacts@1
-        displayName: "Publish the Website Artifact"
         inputs:
-          ArtifactName: sample-site
-          PathtoPublish: $(build.artifactStagingDirectory)
-
-- stage: Deploymenttoprod
-  dependsOn: [Build]
-  condition: succeeded('Build')
-  jobs: 
-  - deployment: deploymentjob
-    pool:
-      vmImage: 'windows-latest'
-
-    environment:
-      name: Trisha Environment
-      resourceType: Virtualmachine
-    strategy:
-     runOnce:
-       deploy: 
-          steps:      
-
-            - task: DownloadPipelineArtifact@2
-              inputs:
-                buildType: 'current'
-                buildVersionToDownload: 'latest'
-                targetPath: '$(build.artifactStagingDirectory)'
-              
-            - task: IISWebAppManagementOnMachineGroup@0
-              inputs:
-                IISDeploymentType: 'IISWebsite'
-                ActionIISWebsite: 'CreateOrUpdateWebsite'
-                WebsiteName: 'default website'
-                WebsitePhysicalPath: '%SystemDrive%\inetpub\wwwroot'
-                WebsitePhysicalPathAuth: 'WebsiteUserPassThrough'
-
-            - task: IISWebAppDeploymentOnMachineGroup@0
-              inputs:
-                WebSiteName: 'default website'
-                Package: '$(build.artifactStagingDirectory)\**\*.zip'
-                RemoveAdditionalFilesFlag: true
-                ExcludeFilesFromAppDataFlag: true
-                TakeAppOfflineFlag: true
-                XmlTransformation: true
-                XmlVariableSubstitution: true
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'webappartifact'
+          publishLocation: 'Container'
+      
