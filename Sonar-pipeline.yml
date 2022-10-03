@@ -1,58 +1,110 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# ASP.NET
+# Build and test ASP.NET projects.
+# Add steps that publish symbols, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
 
 trigger: 
 - none
 
 pool:
   vmImage: 'windows-latest'
-  
+
 variables:
+  solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
 
-steps:
+stages:
 
 - stage: Build
-  jobs:
-    - job: Build
-      steps:
-      - task: NuGetToolInstaller@1
-		    inputs:
-          versionSpec: 4.4.1
 
-	    - task: NuGetCommand@2
-		    displayName: 'NuGet restore'
-		    inputs:
-          restoreSolution: SampleWebApplication/CodeForAzureDevOps.sln
+  jobs:
+
+    - job: Build
+
+      steps:
+
+
+      - task: NuGetToolInstaller@1
+
+      - task: NuGetCommand@2
+        inputs:
+          restoreSolution: '$(solution)'
+        
+      
+      # - task: SonarQubePrepare@5
+      #   inputs:
+      #     SonarQube: 'sq-updated'
+      #     scannerMode: 'MSBuild'
+      #     projectKey: 'ct-bootcamp-project'
+      #     projectName: 'ct-bootcamp-project'
 
       - task: VSBuild@1
-        displayName: 'Build solution SampleWebApplication/CodeForAzureDevOps.sln'
         inputs:
-          solution: SampleWebApplication/CodeForAzureDevOps.sln
-          msbuildArgs: '/p:DeployOnBuild=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:publishUrl="$(Agent.TempDirectory)\WebAppContent\\"'
-          platform: '$(BuildPlatform)'
-          configuration: '$(BuildConfiguration)'
+          solution: '$(solution)'
+          msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
+          platform: '$(buildPlatform)'
+          configuration: '$(buildConfiguration)'
 
-        - task: VSTest@2
-          displayName: 'VsTest - testAssemblies'
-          inputs:
-            testAssemblyVer2: |
-            **\$(BuildConfiguration)\*test*.dll
+      # - task: SonarQubeAnalyze@5
+      # - task: SonarQubePublish@5
+      #   inputs:
+      #    pollingTimeoutSec: '300'
+
+      - task: VSTest@2
+        inputs:
+          testSelector: 'testAssemblies'
+          testAssemblyVer2: |
+            **\UnitTestForAzureDevOps.dll
+            !**\*TestAdapter.dll
             !**\obj\**
-            platform: 'any cpu'
-            configuration: 'release'
+          searchFolder: '$(System.DefaultWorkingDirectory)'
+          runTestsInIsolation: true
+          codeCoverageEnabled: true
+          platform: '$(buildPlatform)'
+          configuration: '$(buildConfiguration)'
+      - task: PublishBuildArtifacts@1
+        displayName: "Publish the Website Artifact"
+        inputs:
+          ArtifactName: sample-site
+          PathtoPublish: $(build.artifactStagingDirectory)
 
-        - task: PublishBuildArtifacts@1
-          displayName: 'Publish Artifact: drop'
+- stage: Deploymenttoprod
+  dependsOn: [Build]
+  condition: succeeded('Build')
+  jobs: 
+  - deployment: deploymentjob
+    pool:
+      vmImage: 'windows-latest'
 
-        - task: SonarSource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@5
-          displayName: 'Run Code Analysis'
-          
-        
+    environment:
+      name: Trisha Environment
+      resourceType: Virtualmachine
+    strategy:
+     runOnce:
+       deploy: 
+          steps:      
 
-        - task: SonarSource.sonarqube.291ed61f-1ee4-45d3-b1b0-bf822d9095ef.SonarQubePublish@5
-          displayName: 'Publish Quality Gate Result'
-  
+            - task: DownloadPipelineArtifact@2
+              inputs:
+                buildType: 'current'
+                buildVersionToDownload: 'latest'
+                targetPath: '$(build.artifactStagingDirectory)'
+              
+            - task: IISWebAppManagementOnMachineGroup@0
+              inputs:
+                IISDeploymentType: 'IISWebsite'
+                ActionIISWebsite: 'CreateOrUpdateWebsite'
+                WebsiteName: 'default website'
+                WebsitePhysicalPath: '%SystemDrive%\inetpub\wwwroot'
+                WebsitePhysicalPathAuth: 'WebsiteUserPassThrough'
+
+            - task: IISWebAppDeploymentOnMachineGroup@0
+              inputs:
+                WebSiteName: 'default website'
+                Package: '$(build.artifactStagingDirectory)\**\*.zip'
+                RemoveAdditionalFilesFlag: true
+                ExcludeFilesFromAppDataFlag: true
+                TakeAppOfflineFlag: true
+                XmlTransformation: true
+                XmlVariableSubstitution: true
