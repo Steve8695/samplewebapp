@@ -69,4 +69,44 @@ stages:
           PathtoPublish: '$(Build.ArtifactStagingDirectory)'
           ArtifactName: 'webappartifact'
           publishLocation: 'Container'
+
+- stage: Dev_Deployment
+  dependsOn: [Build]
+  condition: succeeded('Build')
+  jobs: 
+  - deployment: dev_deploy_job
+    pool:
+      vmImage: 'windows-latest'
+
+    environment:
+      name: Demo-env
+      resourceType: Virtualmachine
+    strategy:
+     runOnce:
+       deploy: 
+          steps:      
+          
+            - task: DownloadPipelineArtifact@2
+              inputs:
+                buildType: 'current'
+                buildVersionToDownload: 'latest'
+                targetPath: '$(build.artifactStagingDirectory)'
+              
+            - task: IISWebAppManagementOnMachineGroup@0
+              inputs:
+                IISDeploymentType: 'IISWebsite'
+                ActionIISWebsite: 'CreateOrUpdateWebsite'
+                WebsiteName: 'default website'
+                WebsitePhysicalPath: '%SystemDrive%\inetpub\wwwroot'
+                WebsitePhysicalPathAuth: 'WebsiteUserPassThrough'
+
+            - task: IISWebAppDeploymentOnMachineGroup@0
+              inputs:
+                WebSiteName: 'default website'
+                Package: '$(build.artifactStagingDirectory)\**\*.zip'
+                RemoveAdditionalFilesFlag: true
+                ExcludeFilesFromAppDataFlag: true
+                TakeAppOfflineFlag: true
+                XmlTransformation: true
+                XmlVariableSubstitution: true
       
