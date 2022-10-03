@@ -1,0 +1,59 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger: 
+- none
+
+pool:
+  vmImage: 'windows-latest'
+  
+variables:
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+steps:
+
+- stage: Build
+  jobs:
+    - job: Build
+      steps:
+      - task: NuGetToolInstaller@1
+	      displayName: 'Use NuGet 4.4.1'
+		    inputs:
+          versionSpec: 4.4.1
+
+	    - task: NuGetCommand@2
+		    displayName: 'NuGet restore'
+		    inputs:
+          restoreSolution: SampleWebApplication/CodeForAzureDevOps.sln
+
+      - task: VSBuild@1
+        displayName: 'Build solution SampleWebApplication/CodeForAzureDevOps.sln'
+        inputs:
+          solution: SampleWebApplication/CodeForAzureDevOps.sln
+          msbuildArgs: '/p:DeployOnBuild=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:publishUrl="$(Agent.TempDirectory)\WebAppContent\\"'
+          platform: '$(BuildPlatform)'
+          configuration: '$(BuildConfiguration)'
+
+        - task: VSTest@2
+          displayName: 'VsTest - testAssemblies'
+          inputs:
+            testAssemblyVer2: |
+            **\$(BuildConfiguration)\*test*.dll
+            !**\obj\**
+            platform: 'any cpu'
+            configuration: 'release'
+
+        - task: PublishBuildArtifacts@1
+          displayName: 'Publish Artifact: drop'
+
+        - task: SonarSource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@5
+          displayName: 'Run Code Analysis'
+          
+        
+
+        - task: SonarSource.sonarqube.291ed61f-1ee4-45d3-b1b0-bf822d9095ef.SonarQubePublish@5
+          displayName: 'Publish Quality Gate Result'
+  
