@@ -11,7 +11,7 @@ pool:
 
 variables:
   BuildPlatform: 'Any CPU'
-  BuildConfiguration: 'Release
+  BuildConfiguration: 'Release'
 
 stages:
 
@@ -43,19 +43,6 @@ stages:
           msbuildArgs: '/p:DeployOnBuild=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:publishUrl="$(Agent.TempDirectory)\WebAppContent\\"'
           platform: '$(BuildPlatform)'
           configuration: '$(BuildConfiguration)'
-      - task: ArchiveFiles@2
-        displayName: 'Archive Files'
-        inputs:
-        rootFolderOrFile: '$(Agent.TempDirectory)\WebAppContent'
-        includeRootFolder: false
-
-      - task: PublishBuildArtifacts@1
-        inputs:
-          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-          ArtifactName: 'webappartifact'
-          publishLocation: 'Container'
-        
-
         
       - task: SonarQubeAnalyze@5
       - task: SonarQubePublish@5
@@ -76,19 +63,12 @@ stages:
           runTestsInIsolation: true
           platform: '$(BuildPlatform)'
           configuration: '$(BuildConfiguration)'
-
-      - task: PublishSymbols@2
-        displayName: 'Publish symbols path'
-        inputs:
-        SearchPattern: '**\bin\**\*.pdb'
-        PublishSymbols: false
-        continueOnError: true
-
+        
       - task: PublishBuildArtifacts@1
         inputs:
           PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        condition: succeededOrFailed()
-        
+          ArtifactName: 'webappartifact'
+          publishLocation: 'Container'
 
 - stage: Dev_Deployment
   dependsOn: [Build]
