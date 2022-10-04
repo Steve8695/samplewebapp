@@ -47,8 +47,8 @@ stages:
       - task: ArchiveFiles@2
         displayName: 'Archive Files'
         inputs:
-        rootFolderOrFile: '$(Agent.TempDirectory)\WebAppContent'
-        includeRootFolder: false
+          rootFolderOrFile: '$(Agent.TempDirectory)\WebAppContent'
+          includeRootFolder: false
         
       - task: SonarQubeAnalyze@5
       - task: SonarQubePublish@5
@@ -73,8 +73,8 @@ stages:
       - task: PublishSymbols@2
         displayName: 'Publish symbols path'
         inputs:
-        SearchPattern: '**\bin\**\*.pdb'
-        PublishSymbols: false
+          SearchPattern: '**\bin\**\*.pdb'
+          PublishSymbols: false
         continueOnError: true 
 
 
