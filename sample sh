@@ -1,0 +1,23 @@
+     webapplicationurl=$(webappurlList.webappurll)
+      echo $webapplicationurl
+      webApplicationName=$(Build.Repository.Name)-$webapplicationurl-$(Build.BuildNumber)
+      echo $webApplicationName
+      CONTENT="$(cat $(webappurlList.decryptedfile)|base64 -w 0)"
+      scanRequest=""
+      scanType=$(echo ${{parameters.endpointType}} | tr '[:lower:]' '[:upper:]')
+      if [[ $scanType == "INTERNAL" ]];
+      then
+        scanRequest="<defaultScannerTags><set><Tag><id>88951351</id><name><![CDATA[WAS-Scanners]]></name></Tag></set></defaultScannerTags>"
+      elif [[ $scanType == "EXTERNAL" ]];
+      then
+        scanRequest="<defaultScanner><type>EXTERNAL</type></defaultScanner>"
+      fi
+      cat << EOF > createwebapp.xml
+      <ServiceRequest><data><WebApp><name><![CDATA[$webApplicationName]]></name><url><![CDATA[$webapplicationurl]]></url><postmanCollection><collection><name>${{parameters.collectionFilePath}}</name><content>$CONTENT</content></collection></postmanCollection><tags><set><Tag><id>131184464</id></Tag></set></tags>$scanRequest<defaultProfile><id>77027</id></defaultProfile><urlBlacklist><set><UrlEntry regex="true"><![CDATA[.*]]></UrlEntry></set></urlBlacklist>$(webappurlList.webappurllist)</WebApp></data></ServiceRequest>
+      EOF
+      request=`cat createwebapp.xml`
+      echo $request
+      echo "##vso[task.setvariable variable=webappXmlRequest;isOutput=true]$request"
+      echo "##vso[task.setvariable variable=webapplicationurl;isOutput=true]$webapplicationurl"
+      
+      
